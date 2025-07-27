@@ -8,9 +8,17 @@
     <div id="list-container">
         <form>
             <div>
-                랜덤 추가 시간 범위 입력 (ms): 
+                다음 방문까지 기본 시간 입력 (ms): 
+                <input type="number" id="visitInterval" placeholder="기본 시간(ms)" value="6000">
+            </div>
+            <div>
+                다음 방문까지 랜덤 추가 시간 범위 입력 (ms): 
                 <input type="number" id="minRandom" placeholder="최소 ms" value="1000"> ~ 
                 <input type="number" id="maxRandom" placeholder="최대 ms" value="9998">
+            </div><br>
+            <div>
+                창 닫는 시간 입력 (ms): 
+                <input type="number" id="closeInterval" placeholder="닫는 시간(ms)" value="3000">
             </div><br>
             <div>
                 랜덤 방문 사이트 개수 입력:
@@ -31,9 +39,6 @@
     <div id="log" style="white-space: pre-line"></div>
 
     <script type="text/javascript">
-        const NEXT_VISIT_INTERVAL = 60000;     // 다음 방문까지 시간 (단위: ms) 예: 1분 = 60000ms
-        const CLOSE_INTERVAL = 1800000;        // 창 닫는 시간 (단위: ms) 예: 30분 = 1800000ms
-
         const startButton = document.getElementById("start");
         const stopButton = document.querySelector(".stop");
         const log = document.getElementById("log");
@@ -86,11 +91,11 @@
             document.getElementById('box').removeChild(obj.parentNode);
         };
 
-        const createWorkerScript = (minRandom, maxRandom) => {
+        const createWorkerScript = (minRandom, maxRandom, visitIntervalInput) => {
             return `
                 let count = 0;
                 let article = 1;
-                const BASE_NEXT_TIME = ${NEXT_VISIT_INTERVAL};
+                const BASE_NEXT_TIME = ${visitIntervalInput};
 
                 const autoVisit = () => {
                     let new_article = 1 + Math.floor(Math.random() * 100);
@@ -166,8 +171,12 @@
                     return;
                 }
 
+                const visitIntervalInput = parseInt(document.getElementById('visitInterval').value);
+                const closeIntervalInput = parseInt(document.getElementById('closeInterval').value);
+                CLOSE_INTERVAL = closeIntervalInput;
+
                 try {
-                    const workerScript = createWorkerScript(minRandom, maxRandom);
+                    const workerScript = createWorkerScript(minRandom, maxRandom, visitIntervalInput);
                     const blob = new Blob([workerScript], { type: 'application/javascript' });
                     worker = new Worker(URL.createObjectURL(blob));
 
