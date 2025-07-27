@@ -12,6 +12,11 @@
                 <input type="number" id="minRandom" placeholder="최소 ms" value="1000"> ~ 
                 <input type="number" id="maxRandom" placeholder="최대 ms" value="9998">
             </div><br>
+            <div>
+                랜덤 방문 사이트 개수 입력:
+                <input type="number" id="minCount" placeholder="최소 개수" value="1" min="1"> ~ 
+                <input type="number" id="maxCount" placeholder="최대 개수" value="3" min="1">
+            </div><br>
             <div id="box">
                 <button type="button" onclick="loadFile()">메모장 추가</button>
                 <input type="file" id="fileInput" style="display:none;" accept=".txt" onchange="handleFile(this)">
@@ -26,14 +31,14 @@
     <div id="log" style="white-space: pre-line"></div>
 
     <script type="text/javascript">
-        const NEXT_VISIT_INTERVAL = 60000;     // 기본 대기 시간 (1분)
-        const CLOSE_INTERVAL = 1800000;        // 창 자동 닫기 시간 (30분)
+        const NEXT_VISIT_INTERVAL = 60000;     // 다음 방문까지 시간 (단위: ms) 예: 1분 = 60000ms
+        const CLOSE_INTERVAL = 1800000;        // 창 닫는 시간 (단위: ms) 예: 30분 = 1800000ms
 
         const startButton = document.getElementById("start");
         const stopButton = document.querySelector(".stop");
         const log = document.getElementById("log");
 
-        let list = [];
+        let allLinks = [];
         let cafes = [];
         let count = 0;
         let article = 1;
@@ -83,10 +88,8 @@
 
         const createWorkerScript = (minRandom, maxRandom) => {
             return `
-                let list = [];
                 let count = 0;
                 let article = 1;
-                const CLOSE_INTERVAL = ${CLOSE_INTERVAL};
                 const BASE_NEXT_TIME = ${NEXT_VISIT_INTERVAL};
 
                 const autoVisit = () => {
@@ -99,14 +102,13 @@
                     const RANDOM_VISIT_VARIATION = Math.floor(Math.random() * (${maxRandom} - ${minRandom} + 1)) + ${minRandom};
                     const nextTime = BASE_NEXT_TIME + RANDOM_VISIT_VARIATION;
 
-                    postMessage({ type: 'visit', cafeUrls: list, article, nextTime, count: ++count });
+                    postMessage({ type: 'visit', article, nextTime, count: ++count });
 
                     setTimeout(autoVisit, nextTime);
                 };
 
                 self.onmessage = (event) => {
                     if (event.data.type === 'start') {
-                        list = event.data.list;
                         autoVisit();
                     } else if (event.data.type === 'stop') {
                         self.close();
@@ -121,14 +123,45 @@
                 cafes = [];
                 count = 0;
                 article = 1;
-                list = Array.from(document.getElementsByClassName('Address')).map(item => item.value);
+                allLinks = Array.from(document.getElementsByClassName('Address')).map(item => item.value);
 
+                if (allLinks.length === 0) {
+                    alert("방문할 링크가 없습니다. 사이트 주소를 하나 이상 입력해주세요!");
+                    updateUI(false);
+                    return;
+                }
+
+                // 랜덤 추가 시간 입력 및 체크
                 const minRandom = parseInt(document.getElementById('minRandom').value) || 1000;
                 const maxRandom = parseInt(document.getElementById('maxRandom').value) || 9998;
 
-                // 사용자 입력 유효성 검사 추가
                 if (minRandom > maxRandom) {
-                    alert("⚠️ 최소 랜덤 시간이 최대 랜덤 시간보다 클 수 없습니다!");
+                    alert("⚠️ 최소 랜덤 시간이 최대보다 클 수 없습니다!");
+                    updateUI(false);
+                    return;
+                }
+
+                // 방문할 링크 개수 계산 및 랜덤 선택
+                const minCount = parseInt(document.getElementById('minCount').value);
+                const maxCount = parseInt(document.getElementById('maxCount').value);
+
+                if (isNaN(minCount) || isNaN(maxCount)) {
+                    alert("⚠️ 최소/최대 방문 개수를 숫자로 입력해주세요!");
+                    updateUI(false);
+                    return;
+                }
+                if (minCount > maxCount) {
+                    alert("⚠️ 최소 방문 개수가 최대 방문 개수보다 클 수 없습니다!");
+                    updateUI(false);
+                    return;
+                }
+                if (maxCount < 1 || minCount < 1) {
+                    alert("⚠️ 방문할 개수는 최소 1개 이상이어야 합니다!");
+                    updateUI(false);
+                    return;
+                }
+                if (minCount > allLinks.length || maxCount > allLinks.length) {
+                    alert(`⚠️ 입력한 범위가 너무 큽니다. 현재 가능한 링크 개수는 ${allLinks.length}개입니다.`);
                     updateUI(false);
                     return;
                 }
@@ -140,20 +173,25 @@
 
                     worker.onmessage = (event) => {
                         if (event.data.type === 'visit') {
-                            const { cafeUrls, article, nextTime, count } = event.data;
-                            let notice = "\n\n";
+                            const { article, nextTime, count } = event.data;
+                            
+                            const visitCount = Math.min(Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount, allLinks.length);
+                            const shuffled = [...allLinks].sort(() => Math.random() - 0.5);
+                            const selectedLinks = shuffled.slice(0, visitCount);
 
-                            for (let i = 0; i < cafeUrls.length; i++) {
-                                notice += `${cafeUrls[i]} 카페 방문 시간은 ${new Date().toLocaleString()}\n\n`;
+                            let notice = `\n\n[${count}회차 방문] 선택된 ${visitCount}개 사이트:\n`;
 
-                                const newWin = window.open(cafeUrls[i], `cafe${i}_${Date.now()}`);
+                            selectedLinks.forEach((link, i) => {
+                                notice += `${link} 방문 시간: ${new Date().toLocaleString()}\n`;
+
+                                const newWin = window.open(link, `cafe${i}_${Date.now()}`);
 
                                 const closeTimer = setTimeout(() => {
                                     if (newWin && !newWin.closed) newWin.close();
                                 }, CLOSE_INTERVAL);
 
                                 cafes.push({ window: newWin, timerId: closeTimer });
-                            }
+                            });
 
                             const now = new Date();
                             const nextVisit = new Date(now.getTime() + nextTime);
@@ -161,16 +199,12 @@
                             const hours = Math.floor(totalSeconds / 3600);
                             const minutes = Math.floor((totalSeconds % 3600) / 60);
                             const seconds = totalSeconds % 60;
-                            notice += `다음 방문 시간 : ${hours}시간 ${minutes}분 ${seconds}초 이후 => ${nextVisit.toLocaleString()}\n\n`;
-                            notice += `현재 ${count}번 방문 했습니다.`;
+                            notice += `\n다음 방문까지: ${hours}시간 ${minutes}분 ${seconds}초 (${nextVisit.toLocaleString()})\n`;
                             log.textContent = notice;
                         }
                     };
 
-                    worker.postMessage({
-                        type: 'start',
-                        list: list
-                    });
+                    worker.postMessage({ type: 'start' });
 
                 } catch (error) {
                     console.error("오류 발생:", error);
