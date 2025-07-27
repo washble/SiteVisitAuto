@@ -7,6 +7,11 @@
 <body>
     <div id="list-container">
         <form>
+            <div>
+                랜덤 추가 시간 범위 입력 (ms): 
+                <input type="number" id="minRandom" placeholder="최소 ms" value="1000"> ~ 
+                <input type="number" id="maxRandom" placeholder="최대 ms" value="9998">
+            </div><br>
             <div id="box">
                 <button type="button" onclick="loadFile()">메모장 추가</button>
                 <input type="file" id="fileInput" style="display:none;" accept=".txt" onchange="handleFile(this)">
@@ -21,8 +26,8 @@
     <div id="log" style="white-space: pre-line"></div>
 
     <script type="text/javascript">
-        const NEXT_VISIT_INTERVAL = 60000;     // 다음 방문까지 시간 (단위: ms) 예: 1분 = 60000ms
-        const CLOSE_INTERVAL = 1800000;        // 창 닫는 시간 (단위: ms) 예: 30분 = 1800000ms
+        const NEXT_VISIT_INTERVAL = 60000;     // 기본 대기 시간 (1분)
+        const CLOSE_INTERVAL = 1800000;        // 창 자동 닫기 시간 (30분)
 
         const startButton = document.getElementById("start");
         const stopButton = document.querySelector(".stop");
@@ -76,7 +81,7 @@
             document.getElementById('box').removeChild(obj.parentNode);
         };
 
-        const createWorkerScript = () => {
+        const createWorkerScript = (minRandom, maxRandom) => {
             return `
                 let list = [];
                 let count = 0;
@@ -91,7 +96,7 @@
                     }
                     article = new_article;
 
-                    const RANDOM_VISIT_VARIATION = Math.floor(Math.random() * 9998); // 다음 방문까지 추가 랜덤 시간 (단위: ms)
+                    const RANDOM_VISIT_VARIATION = Math.floor(Math.random() * (${maxRandom} - ${minRandom} + 1)) + ${minRandom};
                     const nextTime = BASE_NEXT_TIME + RANDOM_VISIT_VARIATION;
 
                     postMessage({ type: 'visit', cafeUrls: list, article, nextTime, count: ++count });
@@ -118,8 +123,18 @@
                 article = 1;
                 list = Array.from(document.getElementsByClassName('Address')).map(item => item.value);
 
+                const minRandom = parseInt(document.getElementById('minRandom').value) || 1000;
+                const maxRandom = parseInt(document.getElementById('maxRandom').value) || 9998;
+
+                // 사용자 입력 유효성 검사 추가
+                if (minRandom > maxRandom) {
+                    alert("⚠️ 최소 랜덤 시간이 최대 랜덤 시간보다 클 수 없습니다!");
+                    updateUI(false);
+                    return;
+                }
+
                 try {
-                    const workerScript = createWorkerScript();
+                    const workerScript = createWorkerScript(minRandom, maxRandom);
                     const blob = new Blob([workerScript], { type: 'application/javascript' });
                     worker = new Worker(URL.createObjectURL(blob));
 
