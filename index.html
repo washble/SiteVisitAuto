@@ -136,6 +136,22 @@
                     return;
                 }
 
+                // 다음 방문까지 기본시간 입력 및 창 닫는 시간 입력
+                const visitIntervalInput = parseInt(document.getElementById('visitInterval').value);
+                const closeIntervalInput = parseInt(document.getElementById('closeInterval').value);
+                CLOSE_INTERVAL = closeIntervalInput;
+
+                if (isNaN(visitIntervalInput) || (visitIntervalInput <= 0)) {
+                    alert("⚠️ 다음 방문까지 기본시간을 올바르게 입력해주세요!");
+                    updateUI(false);
+                    return;
+                }
+                if (isNaN(closeIntervalInput) || (closeIntervalInput < 0)) {
+                    alert("⚠️ 창 닫는 시간을 올바르게 입력해주세요!");
+                    updateUI(false);
+                    return;
+                }
+
                 // 랜덤 추가 시간 입력 및 체크
                 const minRandom = parseInt(document.getElementById('minRandom').value) || 1000;
                 const maxRandom = parseInt(document.getElementById('maxRandom').value) || 9998;
@@ -170,10 +186,6 @@
                     updateUI(false);
                     return;
                 }
-
-                const visitIntervalInput = parseInt(document.getElementById('visitInterval').value);
-                const closeIntervalInput = parseInt(document.getElementById('closeInterval').value);
-                CLOSE_INTERVAL = closeIntervalInput;
 
                 try {
                     const workerScript = createWorkerScript(minRandom, maxRandom, visitIntervalInput);
